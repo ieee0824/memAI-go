@@ -32,15 +32,15 @@ func DefaultLTMConfig() LTMConfig {
 }
 
 // LTM manages long-term memory search with emotional priming.
-type LTM struct {
+type LTM[ID comparable] struct {
 	config    LTMConfig
-	store     MemoryStore
+	store     MemoryStore[ID]
 	embedding EmbeddingFunc
 }
 
 // NewLTM creates a new long-term memory manager.
-func NewLTM(store MemoryStore, embeddingFn EmbeddingFunc, config LTMConfig) *LTM {
-	return &LTM{
+func NewLTM[ID comparable](store MemoryStore[ID], embeddingFn EmbeddingFunc, config LTMConfig) *LTM[ID] {
+	return &LTM[ID]{
 		config:    config,
 		store:     store,
 		embedding: embeddingFn,
@@ -49,7 +49,7 @@ func NewLTM(store MemoryStore, embeddingFn EmbeddingFunc, config LTMConfig) *LTM
 
 // Search finds relevant memories for the given query using vector similarity
 // with multi-factor scoring (thread, date, emotion) and emotional priming.
-func (l *LTM) Search(ctx context.Context, q SearchQuery) ([]SearchResult, error) {
+func (l *LTM[ID]) Search(ctx context.Context, q SearchQuery) ([]SearchResult[ID], error) {
 	// Generate embedding if not provided
 	queryEmb := q.QueryEmbedding
 	if len(queryEmb) == 0 {
@@ -74,7 +74,7 @@ func (l *LTM) Search(ctx context.Context, q SearchQuery) ([]SearchResult, error)
 		threshold -= l.config.EmotionalPrimeDelta
 	}
 
-	var results []SearchResult
+	var results []SearchResult[ID]
 	for _, mem := range memories {
 		if len(mem.Embedding) == 0 {
 			continue
@@ -111,7 +111,7 @@ func (l *LTM) Search(ctx context.Context, q SearchQuery) ([]SearchResult, error)
 		}
 
 		if score >= threshold {
-			results = append(results, SearchResult{Memory: mem, Score: score})
+			results = append(results, SearchResult[ID]{Memory: mem, Score: score})
 		}
 	}
 
@@ -127,7 +127,7 @@ func (l *LTM) Search(ctx context.Context, q SearchQuery) ([]SearchResult, error)
 }
 
 // ApplyFeedback adjusts the boost value for the given memories.
-func (l *LTM) ApplyFeedback(ctx context.Context, memoryIDs []int64, delta float64) error {
+func (l *LTM[ID]) ApplyFeedback(ctx context.Context, memoryIDs []ID, delta float64) error {
 	for _, id := range memoryIDs {
 		if err := l.store.UpdateBoost(ctx, id, delta); err != nil {
 			return err

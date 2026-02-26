@@ -105,11 +105,11 @@ delta = memai.DetectFeedback("違うよ、それじゃない")
 `MemoryStore` を実装すれば任意のバックエンドを使える。
 
 ```go
-type MemoryStore interface {
-    GetMemories(ctx context.Context) ([]Memory, error)
-    SaveMemory(ctx context.Context, mem *Memory) error
-    DeleteMemory(ctx context.Context, id int64) error
-    UpdateBoost(ctx context.Context, id int64, delta float64) error
+type MemoryStore[ID comparable] interface {
+    GetMemories(ctx context.Context) ([]Memory[ID], error)
+    SaveMemory(ctx context.Context, mem *Memory[ID]) error
+    DeleteMemory(ctx context.Context, id ID) error
+    UpdateBoost(ctx context.Context, id ID, delta float64) error
 }
 ```
 

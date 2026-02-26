@@ -6,20 +6,20 @@ import (
 	"testing"
 )
 
-// mockStore implements MemoryStore for testing.
+// mockStore implements MemoryStore[int] for testing.
 type mockStore struct {
-	memories []Memory
+	memories []Memory[int]
 }
 
-func (m *mockStore) GetMemories(_ context.Context) ([]Memory, error) {
+func (m *mockStore) GetMemories(_ context.Context) ([]Memory[int], error) {
 	return m.memories, nil
 }
-func (m *mockStore) SaveMemory(_ context.Context, mem *Memory) error {
+func (m *mockStore) SaveMemory(_ context.Context, mem *Memory[int]) error {
 	m.memories = append(m.memories, *mem)
 	return nil
 }
-func (m *mockStore) DeleteMemory(_ context.Context, id int64) error { return nil }
-func (m *mockStore) UpdateBoost(_ context.Context, id int64, delta float64) error {
+func (m *mockStore) DeleteMemory(_ context.Context, id int) error { return nil }
+func (m *mockStore) UpdateBoost(_ context.Context, id int, delta float64) error {
 	for i := range m.memories {
 		if m.memories[i].ID == id {
 			m.memories[i].Boost += delta
@@ -56,7 +56,7 @@ func TestCosineSimilarity_DifferentLength(t *testing.T) {
 
 func TestLTM_Search(t *testing.T) {
 	store := &mockStore{
-		memories: []Memory{
+		memories: []Memory[int]{
 			{ID: 1, Content: "relevant", Embedding: []float64{0.9, 0.1, 0.0}},
 			{ID: 2, Content: "irrelevant", Embedding: []float64{0.0, 0.0, 1.0}},
 		},
@@ -80,7 +80,7 @@ func TestLTM_Search(t *testing.T) {
 
 func TestLTM_EmotionalPriming(t *testing.T) {
 	store := &mockStore{
-		memories: []Memory{
+		memories: []Memory[int]{
 			{ID: 1, Content: "borderline", Embedding: []float64{0.6, 0.5, 0.0}},
 		},
 	}
@@ -107,7 +107,7 @@ func TestLTM_EmotionalPriming(t *testing.T) {
 
 func TestLTM_ThreadBoost(t *testing.T) {
 	store := &mockStore{
-		memories: []Memory{
+		memories: []Memory[int]{
 			{ID: 1, Content: "same-thread", Embedding: []float64{0.8, 0.2, 0.0}, ThreadKey: "t1"},
 			{ID: 2, Content: "other-thread", Embedding: []float64{0.8, 0.2, 0.0}, ThreadKey: "t2"},
 		},

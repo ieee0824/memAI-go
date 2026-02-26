@@ -31,8 +31,9 @@ type WorkingMemoryItem struct {
 }
 
 // Memory represents a stored long-term memory with its embedding.
-type Memory struct {
-	ID                 int64
+// The type parameter ID allows any comparable type (int64, string, uuid, etc.).
+type Memory[ID comparable] struct {
+	ID                 ID
 	Content            string
 	Embedding          []float64
 	ThreadKey          string
@@ -42,8 +43,8 @@ type Memory struct {
 }
 
 // SearchResult represents a memory search result with computed score.
-type SearchResult struct {
-	Memory Memory
+type SearchResult[ID comparable] struct {
+	Memory Memory[ID]
 	Score  float64
 }
 
