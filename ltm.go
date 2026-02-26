@@ -64,7 +64,7 @@ func (l *LTM) Search(ctx context.Context, q SearchQuery) ([]SearchResult, error)
 		}
 	}
 
-	memories, err := l.store.GetMemories(ctx, q.UserID)
+	memories, err := l.store.GetMemories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("memory store error: %w", err)
 	}

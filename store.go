@@ -5,8 +5,8 @@ import "context"
 // MemoryStore is the interface for long-term memory persistence.
 // Implementations can use SQLite, PostgreSQL, or any other backend.
 type MemoryStore interface {
-	// GetMemories returns all memories with embeddings for a user.
-	GetMemories(ctx context.Context, userID string) ([]Memory, error)
+	// GetMemories returns all memories with embeddings.
+	GetMemories(ctx context.Context) ([]Memory, error)
 
 	// SaveMemory persists a new memory.
 	SaveMemory(ctx context.Context, mem *Memory) error

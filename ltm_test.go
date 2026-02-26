@@ -11,7 +11,7 @@ type mockStore struct {
 	memories []Memory
 }
 
-func (m *mockStore) GetMemories(_ context.Context, _ string) ([]Memory, error) {
+func (m *mockStore) GetMemories(_ context.Context) ([]Memory, error) {
 	return m.memories, nil
 }
 func (m *mockStore) SaveMemory(_ context.Context, mem *Memory) error {
@@ -64,7 +64,6 @@ func TestLTM_Search(t *testing.T) {
 	ltm := NewLTM(store, nil, DefaultLTMConfig())
 
 	results, err := ltm.Search(context.Background(), SearchQuery{
-		UserID:         "u1",
 		QueryEmbedding: []float64{1.0, 0.0, 0.0},
 	})
 	if err != nil {
@@ -91,14 +90,12 @@ func TestLTM_EmotionalPriming(t *testing.T) {
 
 	// Without emotional priming
 	r1, _ := ltm.Search(context.Background(), SearchQuery{
-		UserID:             "u1",
 		QueryEmbedding:     emb,
 		EmotionalIntensity: 0.0,
 	})
 
 	// With emotional priming (lower threshold)
 	r2, _ := ltm.Search(context.Background(), SearchQuery{
-		UserID:             "u1",
 		QueryEmbedding:     emb,
 		EmotionalIntensity: 0.8,
 	})
@@ -118,7 +115,6 @@ func TestLTM_ThreadBoost(t *testing.T) {
 	ltm := NewLTM(store, nil, DefaultLTMConfig())
 
 	results, _ := ltm.Search(context.Background(), SearchQuery{
-		UserID:         "u1",
 		QueryEmbedding: []float64{1.0, 0.0, 0.0},
 		ThreadKey:      "t1",
 	})

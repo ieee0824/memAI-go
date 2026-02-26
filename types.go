@@ -33,7 +33,6 @@ type WorkingMemoryItem struct {
 // Memory represents a stored long-term memory with its embedding.
 type Memory struct {
 	ID                 int64
-	UserID             string
 	Content            string
 	Embedding          []float64
 	ThreadKey          string
@@ -50,7 +49,6 @@ type SearchResult struct {
 
 // SearchQuery holds the parameters for a long-term memory search.
 type SearchQuery struct {
-	UserID             string
 	Query              string
 	QueryEmbedding     []float64
 	ThreadKey          string

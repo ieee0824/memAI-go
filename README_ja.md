@@ -76,7 +76,6 @@ fmt.Println(stm.Format())
 ltm := memai.NewLTM(store, embeddingFn, memai.DefaultLTMConfig())
 
 results, err := ltm.Search(ctx, memai.SearchQuery{
-    UserID:             "user-1",
     Query:              "明日の会議",
     ThreadKey:          "thread-1",
     EmotionalIntensity: 0.7,
@@ -111,7 +110,7 @@ delta = memai.DetectFeedback("違うよ、それじゃない")
 
 ```go
 type MemoryStore interface {
-    GetMemories(ctx context.Context, userID string) ([]Memory, error)
+    GetMemories(ctx context.Context) ([]Memory, error)
     SaveMemory(ctx context.Context, mem *Memory) error
     DeleteMemory(ctx context.Context, id int64) error
     UpdateBoost(ctx context.Context, id int64, delta float64) error
