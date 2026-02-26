@@ -127,20 +127,3 @@ func TestLTM_ThreadBoost(t *testing.T) {
 	}
 }
 
-func TestFormatResults(t *testing.T) {
-	results := []SearchResult{
-		{Memory: Memory{Content: "fact 1"}, Score: 0.9},
-		{Memory: Memory{Content: "fact 2"}, Score: 0.8},
-	}
-
-	formatted := FormatResults(results)
-	if formatted == "" {
-		t.Error("expected non-empty format")
-	}
-}
-
-func TestFormatResults_Empty(t *testing.T) {
-	if FormatResults(nil) != "" {
-		t.Error("expected empty for nil results")
-	}
-}

@@ -98,22 +98,3 @@ func TestSTM_CapacityLimit(t *testing.T) {
 	}
 }
 
-func TestSTM_Format(t *testing.T) {
-	stm := NewSTM(DefaultSTMConfig())
-	stm.SetItems([]*WorkingMemoryItem{
-		{Topic: "high", Activation: 0.9, Keywords: []string{}},
-		{Topic: "low", Activation: 0.2, Keywords: []string{}},
-	})
-
-	formatted := stm.Format()
-	if formatted == "" {
-		t.Error("expected non-empty format output")
-	}
-}
-
-func TestSTM_FormatEmpty(t *testing.T) {
-	stm := NewSTM(DefaultSTMConfig())
-	if stm.Format() != "" {
-		t.Error("expected empty format for empty STM")
-	}
-}

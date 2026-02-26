@@ -55,10 +55,6 @@ stm.Add(&memai.WorkingMemoryItem{
 // ターン更新: 減衰 → 感情マーク → キーワードリフレッシュ → 除去
 emotion := memai.AnalyzeEmotion(userMessage)
 stm.Update(currentTurn, userMessage, emotion)
-
-// フォーマット出力
-fmt.Println(stm.Format())
-// - [高] 会議の予定
 ```
 
 設定:

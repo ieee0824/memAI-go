@@ -55,10 +55,6 @@ stm.Add(&memai.WorkingMemoryItem{
 // Turn update: decay → emotional marking → keyword refresh → eviction
 emotion := memai.AnalyzeEmotion(userMessage)
 stm.Update(currentTurn, userMessage, emotion)
-
-// Formatted output
-fmt.Println(stm.Format())
-// - [高] meeting schedule
 ```
 
 Configuration:

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strings"
 )
 
 // LTMConfig configures long-term memory search behavior.
@@ -135,19 +134,6 @@ func (l *LTM) ApplyFeedback(ctx context.Context, memoryIDs []int64, delta float6
 		}
 	}
 	return nil
-}
-
-// FormatResults formats search results as a human-readable context string.
-func FormatResults(results []SearchResult) string {
-	if len(results) == 0 {
-		return ""
-	}
-
-	var lines []string
-	for _, r := range results {
-		lines = append(lines, fmt.Sprintf("- %s", r.Memory.Content))
-	}
-	return strings.Join(lines, "\n")
 }
 
 // dateMatches checks whether two date strings match.

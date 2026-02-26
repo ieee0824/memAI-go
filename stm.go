@@ -1,7 +1,6 @@
 package memai
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 )
@@ -63,20 +62,6 @@ func (s *STM) Update(turn int, message string, emotion *EmotionalState) {
 func (s *STM) Add(item *WorkingMemoryItem) {
 	s.items = append(s.items, item)
 	s.evict()
-}
-
-// Format returns a human-readable representation of the working memory state.
-func (s *STM) Format() string {
-	if len(s.items) == 0 {
-		return ""
-	}
-
-	var lines []string
-	for _, item := range s.items {
-		level := activationLevel(item.Activation)
-		lines = append(lines, fmt.Sprintf("- [%s] %s", level, item.Topic))
-	}
-	return strings.Join(lines, "\n")
 }
 
 // decay reduces activation of all items based on elapsed turns.
@@ -153,14 +138,3 @@ func itemMatchesMessage(item *WorkingMemoryItem, lowerMsg string) bool {
 	return false
 }
 
-// activationLevel returns a label for the activation level.
-func activationLevel(activation float64) string {
-	switch {
-	case activation >= 0.7:
-		return "高"
-	case activation >= 0.4:
-		return "中"
-	default:
-		return "低"
-	}
-}
