@@ -1,6 +1,6 @@
 # memAI-go
 
-A Go library for brain-inspired memory systems. Provides amygdala-based emotion detection, short-term memory (working memory), and long-term memory (vector search + emotional priming).
+A brain-inspired memory system Go library for AI agents. Provides amygdala-based emotion detection, short-term memory (working memory), and long-term memory (vector search + emotional priming).
 
 ## Installation
 
