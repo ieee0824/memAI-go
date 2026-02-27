@@ -25,16 +25,37 @@ package memai
 
 ### Emotion Detection
 
-Keyword-based Japanese emotion detection. No LLM required.
+Keyword-based emotion detection supporting Japanese and English. No LLM required.
 
 ```go
-es := memai.AnalyzeEmotion("嬉しい！ありがとう！")
+// Keyword matching (default)
+es := memai.AnalyzeEmotion("嬉しい！ありがとう！", memai.LangJapanese)
 // es.Primary   = EmotionJoy
 // es.Intensity = 0.7  (0.0-1.0)
 // es.Valence   = 0.56 (-1.0 to 1.0)
+
+es = memai.AnalyzeEmotion("I'm so happy!", memai.LangEnglish)
+// es.Primary = EmotionJoy  (case-insensitive)
 ```
 
 6 categories: joy, sadness, anger, fear, surprise, neutral
+
+#### EmotionAnalyzer Interface
+
+Implement the `EmotionAnalyzer` interface to replace keyword matching with an LLM-based analyzer.
+
+```go
+// Keyword-based (built-in)
+analyzer := memai.NewKeywordEmotionAnalyzer(memai.LangJapanese)
+es, err := analyzer.Analyze(ctx, "嬉しい！")
+
+// Custom LLM-based implementation
+type MyLLMAnalyzer struct { /* LLM client, etc. */ }
+
+func (a *MyLLMAnalyzer) Analyze(ctx context.Context, msg string) (*memai.EmotionalState, error) {
+    // Call LLM and return EmotionalState
+}
+```
 
 ### Short-Term Memory (STM)
 
@@ -53,7 +74,7 @@ stm.Add(&memai.WorkingMemoryItem{
 })
 
 // Turn update: decay → emotional marking → keyword refresh → eviction
-emotion := memai.AnalyzeEmotion(userMessage)
+emotion := memai.AnalyzeEmotion(userMessage, memai.LangEnglish)
 stm.Update(currentTurn, userMessage, emotion)
 ```
 

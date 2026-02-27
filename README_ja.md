@@ -25,16 +25,37 @@ package memai
 
 ### 感情検出
 
-キーワードベースの日本語感情検出。LLM不要。
+キーワードベースの感情検出。日本語・英語に対応。LLM不要。
 
 ```go
-es := memai.AnalyzeEmotion("嬉しい！ありがとう！")
+// キーワードマッチング（デフォルト）
+es := memai.AnalyzeEmotion("嬉しい！ありがとう！", memai.LangJapanese)
 // es.Primary   = EmotionJoy
 // es.Intensity = 0.7  (0.0-1.0)
 // es.Valence   = 0.56 (-1.0〜1.0)
+
+es = memai.AnalyzeEmotion("I'm so happy!", memai.LangEnglish)
+// es.Primary = EmotionJoy（大文字小文字を無視）
 ```
 
 6分類: 喜び・悲しみ・怒り・不安・驚き・中立
+
+#### EmotionAnalyzerインターフェース
+
+`EmotionAnalyzer` インターフェースを実装することで、LLMベースの感情判定に差し替えられる。
+
+```go
+// キーワード方式（標準実装）
+analyzer := memai.NewKeywordEmotionAnalyzer(memai.LangJapanese)
+es, err := analyzer.Analyze(ctx, "嬉しい！")
+
+// LLMベースの独自実装例
+type MyLLMAnalyzer struct { /* LLMクライアント等 */ }
+
+func (a *MyLLMAnalyzer) Analyze(ctx context.Context, msg string) (*memai.EmotionalState, error) {
+    // LLMを呼んで EmotionalState を返す
+}
+```
 
 ### 短期記憶 (STM)
 
@@ -53,7 +74,7 @@ stm.Add(&memai.WorkingMemoryItem{
 })
 
 // ターン更新: 減衰 → 感情マーク → キーワードリフレッシュ → 除去
-emotion := memai.AnalyzeEmotion(userMessage)
+emotion := memai.AnalyzeEmotion(userMessage, memai.LangJapanese)
 stm.Update(currentTurn, userMessage, emotion)
 ```
 
