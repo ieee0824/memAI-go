@@ -2,8 +2,8 @@ package memai
 
 import "strings"
 
-// emotionKeywords maps emotion types to their Japanese keyword triggers.
-var emotionKeywords = map[EmotionType][]string{
+// emotionKeywordsJA maps emotion types to Japanese keyword triggers.
+var emotionKeywordsJA = map[EmotionType][]string{
 	EmotionJoy: {
 		"嬉しい", "うれしい", "楽しい", "たのしい", "ありがとう",
 		"最高", "やった", "良かった", "よかった", "素晴らしい",
@@ -32,6 +32,34 @@ var emotionKeywords = map[EmotionType][]string{
 	},
 }
 
+// emotionKeywordsEN maps emotion types to English keyword triggers (all lowercase).
+// Matching is performed on a lowercased copy of the input.
+var emotionKeywordsEN = map[EmotionType][]string{
+	EmotionJoy: {
+		"happy", "glad", "excited", "grateful", "thankful",
+		"wonderful", "great", "love", "awesome", "fantastic",
+		"joy", "joyful", "delighted", "pleased", "cheerful", "lol",
+	},
+	EmotionSadness: {
+		"sad", "unhappy", "depressed", "lonely", "miss",
+		"cry", "crying", "tears", "heartbroken", "miserable",
+		"down", "blue", "grief", "sorrow",
+	},
+	EmotionAnger: {
+		"angry", "mad", "furious", "annoyed", "frustrated",
+		"hate", "disgusting", "terrible", "awful", "horrible",
+		"outrageous", "unacceptable", "rage",
+	},
+	EmotionFear: {
+		"scared", "afraid", "worried", "anxious", "nervous",
+		"fear", "terrified", "panic", "uneasy", "stressed", "dread",
+	},
+	EmotionSurprise: {
+		"wow", "omg", "unbelievable", "amazing", "incredible",
+		"shocking", "really", "seriously", "no way", "unexpected",
+	},
+}
+
 // emotionValence maps each emotion to its base valence value.
 var emotionValence = map[EmotionType]float64{
 	EmotionJoy:      0.8,
@@ -42,16 +70,29 @@ var emotionValence = map[EmotionType]float64{
 	EmotionNeutral:  0.0,
 }
 
-// AnalyzeEmotion detects emotion from a Japanese text message using keyword matching.
+// AnalyzeEmotion detects emotion from a text message using keyword matching.
+// lang must be LangJapanese or LangEnglish; English matching is case-insensitive.
 // Returns EmotionNeutral with zero intensity if no emotional keywords are found.
-func AnalyzeEmotion(msg string) *EmotionalState {
+func AnalyzeEmotion(msg string, lang Language) *EmotionalState {
+	var keywords map[EmotionType][]string
+	var target string
+
+	switch lang {
+	case LangEnglish:
+		keywords = emotionKeywordsEN
+		target = strings.ToLower(msg)
+	default: // LangJapanese
+		keywords = emotionKeywordsJA
+		target = msg
+	}
+
 	bestEmotion := EmotionNeutral
 	bestCount := 0
 
-	for emotion, keywords := range emotionKeywords {
+	for emotion, kws := range keywords {
 		count := 0
-		for _, kw := range keywords {
-			if strings.Contains(msg, kw) {
+		for _, kw := range kws {
+			if strings.Contains(target, kw) {
 				count++
 			}
 		}

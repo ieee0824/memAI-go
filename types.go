@@ -1,5 +1,13 @@
 package memai
 
+// Language specifies the language used for keyword-based emotion analysis.
+type Language string
+
+const (
+	LangJapanese Language = "ja"
+	LangEnglish  Language = "en"
+)
+
 // EmotionType represents a classified emotion.
 type EmotionType string
 
