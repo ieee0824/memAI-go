@@ -1,5 +1,7 @@
 package memai
 
+import "context"
+
 // Language specifies the language used for keyword-based emotion analysis.
 type Language string
 
@@ -7,6 +9,12 @@ const (
 	LangJapanese Language = "ja"
 	LangEnglish  Language = "en"
 )
+
+// EmotionAnalyzer is the interface for emotion detection.
+// Implement this interface to plug in a custom LLM-based analyzer.
+type EmotionAnalyzer interface {
+	Analyze(ctx context.Context, msg string) (*EmotionalState, error)
+}
 
 // EmotionType represents a classified emotion.
 type EmotionType string

@@ -1,6 +1,9 @@
 package memai
 
-import "strings"
+import (
+	"context"
+	"strings"
+)
 
 // emotionKeywordsJA maps emotion types to Japanese keyword triggers.
 var emotionKeywordsJA = map[EmotionType][]string{
@@ -134,4 +137,21 @@ func AnalyzeEmotion(msg string, lang Language) *EmotionalState {
 		Intensity: intensity,
 		Valence:   valence,
 	}
+}
+
+// KeywordEmotionAnalyzer implements EmotionAnalyzer using keyword matching.
+// Use NewKeywordEmotionAnalyzer to create an instance.
+type KeywordEmotionAnalyzer struct {
+	lang Language
+}
+
+// NewKeywordEmotionAnalyzer returns a keyword-based EmotionAnalyzer for the given language.
+func NewKeywordEmotionAnalyzer(lang Language) *KeywordEmotionAnalyzer {
+	return &KeywordEmotionAnalyzer{lang: lang}
+}
+
+// Analyze implements EmotionAnalyzer using keyword matching.
+// The ctx argument is unused but satisfies the interface for drop-in LLM replacement.
+func (a *KeywordEmotionAnalyzer) Analyze(_ context.Context, msg string) (*EmotionalState, error) {
+	return AnalyzeEmotion(msg, a.lang), nil
 }

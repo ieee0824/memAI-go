@@ -1,6 +1,9 @@
 package memai
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestAnalyzeEmotion_Joy(t *testing.T) {
 	es := AnalyzeEmotion("嬉しい！ありがとう！", LangJapanese)
@@ -94,5 +97,31 @@ func TestAnalyzeEmotion_EnglishAnger(t *testing.T) {
 	}
 	if es.Valence >= 0 {
 		t.Errorf("expected negative valence, got %f", es.Valence)
+	}
+}
+
+func TestKeywordEmotionAnalyzer_ImplementsInterface(t *testing.T) {
+	var _ EmotionAnalyzer = NewKeywordEmotionAnalyzer(LangJapanese)
+}
+
+func TestKeywordEmotionAnalyzer_Japanese(t *testing.T) {
+	a := NewKeywordEmotionAnalyzer(LangJapanese)
+	es, err := a.Analyze(context.Background(), "嬉しい！ありがとう！")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if es.Primary != EmotionJoy {
+		t.Errorf("expected joy, got %s", es.Primary)
+	}
+}
+
+func TestKeywordEmotionAnalyzer_English(t *testing.T) {
+	a := NewKeywordEmotionAnalyzer(LangEnglish)
+	es, err := a.Analyze(context.Background(), "I feel so sad and lonely")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if es.Primary != EmotionSadness {
+		t.Errorf("expected sadness, got %s", es.Primary)
 	}
 }
