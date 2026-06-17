@@ -3,6 +3,7 @@ package memai
 import (
 	"sort"
 	"strings"
+	"sync"
 )
 
 // STMConfig configures short-term memory behavior.
@@ -29,30 +30,62 @@ func DefaultSTMConfig() STMConfig {
 // STM manages short-term / working memory with activation-based decay.
 // Emotional items decay at a slower rate, modeling the amygdala's influence
 // on memory consolidation.
+//
+// All exported methods are safe for concurrent use.
 type STM struct {
+	mu     sync.Mutex
 	config STMConfig
 	items  []*WorkingMemoryItem
 }
 
-// NewSTM creates a new short-term memory manager.
+// NewSTM creates a new short-term memory manager. Non-positive MaxItems and
+// negative rate/boost/threshold fields are replaced with the DefaultSTMConfig
+// values so that a zero-value or partially-filled config cannot silently
+// wipe working memory or invert decay.
 func NewSTM(config STMConfig) *STM {
+	d := DefaultSTMConfig()
+	if config.MaxItems <= 0 {
+		config.MaxItems = d.MaxItems
+	}
+	if config.ActivationThreshold < 0 {
+		config.ActivationThreshold = d.ActivationThreshold
+	}
+	if config.NormalDecayRate < 0 {
+		config.NormalDecayRate = d.NormalDecayRate
+	}
+	if config.EmotionalDecayRate < 0 {
+		config.EmotionalDecayRate = d.EmotionalDecayRate
+	}
+	if config.RefreshBoost < 0 {
+		config.RefreshBoost = d.RefreshBoost
+	}
 	return &STM{config: config}
 }
 
-// Items returns the current working memory items.
+// Items returns a snapshot of the current working memory items. The returned
+// slice is a copy, so appending to it does not affect internal state (the
+// pointed-to items are shared).
 func (s *STM) Items() []*WorkingMemoryItem {
-	return s.items
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]*WorkingMemoryItem, len(s.items))
+	copy(out, s.items)
+	return out
 }
 
 // SetItems replaces the working memory contents.
 func (s *STM) SetItems(items []*WorkingMemoryItem) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.items = items
 }
 
 // Update performs a full STM cycle: decay, emotional marking, refresh, eviction.
 func (s *STM) Update(turn int, message string, emotion *EmotionalState) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.decay(turn)
-	s.markEmotional(emotion)
+	s.markEmotional(message, emotion)
 	s.refresh(message)
 	s.evict()
 }
@@ -60,6 +93,8 @@ func (s *STM) Update(turn int, message string, emotion *EmotionalState) {
 // Add inserts a new item into working memory, evicting the lowest-activation
 // item if capacity is exceeded.
 func (s *STM) Add(item *WorkingMemoryItem) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.items = append(s.items, item)
 	s.evict()
 }
@@ -85,13 +120,20 @@ func (s *STM) decay(currentTurn int) {
 	}
 }
 
-// markEmotional flags items as emotional when emotion intensity is high.
-func (s *STM) markEmotional(emotion *EmotionalState) {
+// markEmotional flags items as emotional when the current message carries
+// emotion (intensity > 0.3). Only items topically relevant to the message
+// (their keywords appear in it) are marked, so an emotional turn does not
+// retroactively tag unrelated items in working memory. The flag is sticky:
+// once set it persists, giving the item the slower EmotionalDecayRate.
+func (s *STM) markEmotional(message string, emotion *EmotionalState) {
 	if emotion == nil || emotion.Intensity <= 0.3 {
 		return
 	}
+	lower := strings.ToLower(message)
 	for _, item := range s.items {
-		item.Emotional = true
+		if itemMatchesMessage(item, lower) {
+			item.Emotional = true
+		}
 	}
 }
 
@@ -119,9 +161,9 @@ func (s *STM) evict() {
 	}
 	s.items = alive
 
-	// Enforce capacity
-	if len(s.items) > s.config.MaxItems {
-		sort.Slice(s.items, func(i, j int) bool {
+	// Enforce capacity (MaxItems <= 0 means no capacity limit).
+	if s.config.MaxItems > 0 && len(s.items) > s.config.MaxItems {
+		sort.SliceStable(s.items, func(i, j int) bool {
 			return s.items[i].Activation > s.items[j].Activation
 		})
 		s.items = s.items[:s.config.MaxItems]
@@ -137,4 +179,3 @@ func itemMatchesMessage(item *WorkingMemoryItem, lowerMsg string) bool {
 	}
 	return false
 }
-

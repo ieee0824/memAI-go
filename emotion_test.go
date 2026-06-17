@@ -125,3 +125,48 @@ func TestKeywordEmotionAnalyzer_English(t *testing.T) {
 		t.Errorf("expected sadness, got %s", es.Primary)
 	}
 }
+
+// Regression (#7): a keyword-count tie must resolve to the same emotion on
+// every run. "happy" (joy) vs "scared" (fear) is a 1-1 tie; joy must win
+// deterministically via emotionOrder.
+func TestAnalyzeEmotion_DeterministicTie(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		es := AnalyzeEmotion("happy scared", LangEnglish)
+		if es.Primary != EmotionJoy {
+			t.Fatalf("nondeterministic tie-break: got %s on iteration %d", es.Primary, i)
+		}
+	}
+}
+
+// Regression (#8): English keywords must match whole words, not substrings.
+func TestAnalyzeEmotion_EnglishNoSubstringFalsePositive(t *testing.T) {
+	cases := []string{
+		"I made dinner",        // "mad" must not match "made"
+		"the mission deadline", // "miss" must not match "mission"
+		"I am fearless",        // "fear" must not match "fearless"
+		"download the file",    // "down" must not match "download"
+		"check the storage",    // "rage" must not match "storage"
+	}
+	for _, msg := range cases {
+		es := AnalyzeEmotion(msg, LangEnglish)
+		if es.Primary != EmotionNeutral {
+			t.Errorf("expected neutral for %q, got %s (intensity %f)", msg, es.Primary, es.Intensity)
+		}
+	}
+}
+
+// Regression (#9): "really" is no longer a surprise keyword.
+func TestAnalyzeEmotion_ReallyNotSurprise(t *testing.T) {
+	es := AnalyzeEmotion("I really need this done.", LangEnglish)
+	if es.Primary != EmotionNeutral {
+		t.Errorf("expected neutral, got %s", es.Primary)
+	}
+}
+
+// Regression (#10): 大丈夫 (reassurance) must not be classified as fear.
+func TestAnalyzeEmotion_DaijobuNotFear(t *testing.T) {
+	es := AnalyzeEmotion("もう大丈夫だよ", LangJapanese)
+	if es.Primary == EmotionFear {
+		t.Errorf("大丈夫 should not be fear, got %s with valence %f", es.Primary, es.Valence)
+	}
+}

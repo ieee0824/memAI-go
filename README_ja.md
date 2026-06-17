@@ -111,14 +111,20 @@ ltm.ApplyFeedback(ctx, memoryIDs, memai.FeedbackBoostPositive)
 
 ### フィードバック検出
 
-ユーザーの反応から記憶の正確性フィードバックを検出。
+ユーザーの反応から記憶の正確性フィードバックを検出。日本語・英語に対応し、否定表現を考慮する（否定が肯定に優先）。
 
 ```go
-delta := memai.DetectFeedback("ありがとう、そうそう！")
+delta := memai.DetectFeedback("ありがとう、そうそう！", memai.LangJapanese)
 // delta = +0.05 (positive)
 
-delta = memai.DetectFeedback("違うよ、それじゃない")
+delta = memai.DetectFeedback("違うよ、それじゃない", memai.LangJapanese)
 // delta = -0.05 (negative)
+
+delta = memai.DetectFeedback("正解じゃない", memai.LangJapanese)
+// delta = -0.05 (否定: 肯定語+否定接尾辞)
+
+delta = memai.DetectFeedback("Thanks, exactly!", memai.LangEnglish)
+// delta = +0.05 (positive)
 ```
 
 ### ストレージインターフェース
