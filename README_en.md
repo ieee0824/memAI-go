@@ -111,14 +111,21 @@ Scoring factors:
 
 ### Feedback Detection
 
-Detects memory accuracy feedback from user responses.
+Detects memory accuracy feedback from user responses. Supports Japanese and
+English, and is negation-aware (a negative correction wins over a positive cue).
 
 ```go
-delta := memai.DetectFeedback("ありがとう、そうそう！")
+delta := memai.DetectFeedback("ありがとう、そうそう！", memai.LangJapanese)
 // delta = +0.05 (positive)
 
-delta = memai.DetectFeedback("違うよ、それじゃない")
+delta = memai.DetectFeedback("違うよ、それじゃない", memai.LangJapanese)
 // delta = -0.05 (negative)
+
+delta = memai.DetectFeedback("正解じゃない", memai.LangJapanese)
+// delta = -0.05 (negation: positive token + negation suffix)
+
+delta = memai.DetectFeedback("Thanks, exactly!", memai.LangEnglish)
+// delta = +0.05 (positive)
 ```
 
 ### Storage Interface

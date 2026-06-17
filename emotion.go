@@ -3,6 +3,7 @@ package memai
 import (
 	"context"
 	"strings"
+	"unicode"
 )
 
 // emotionKeywordsJA maps emotion types to Japanese keyword triggers.
@@ -24,7 +25,7 @@ var emotionKeywordsJA = map[EmotionType][]string{
 		"ひどい", "酷い", "許せない", "ゆるせない",
 	},
 	EmotionFear: {
-		"心配", "不安", "怖い", "こわい", "大丈夫",
+		"心配", "不安", "怖い", "こわい",
 		"やばい", "ヤバい", "焦", "あせ", "緊張",
 		"ドキドキ", "どきどき", "恐",
 	},
@@ -59,7 +60,7 @@ var emotionKeywordsEN = map[EmotionType][]string{
 	},
 	EmotionSurprise: {
 		"wow", "omg", "unbelievable", "amazing", "incredible",
-		"shocking", "really", "seriously", "no way", "unexpected",
+		"shocking", "no way", "unexpected",
 	},
 }
 
@@ -73,17 +74,31 @@ var emotionValence = map[EmotionType]float64{
 	EmotionNeutral:  0.0,
 }
 
+// emotionOrder fixes the evaluation order of emotions. Ranging a map has a
+// randomized iteration order in Go, so iterating this slice instead guarantees
+// a deterministic winner when two emotions match the same number of keywords
+// (the earlier entry wins).
+var emotionOrder = []EmotionType{
+	EmotionJoy,
+	EmotionSadness,
+	EmotionAnger,
+	EmotionFear,
+	EmotionSurprise,
+}
+
 // AnalyzeEmotion detects emotion from a text message using keyword matching.
 // lang must be LangJapanese or LangEnglish; English matching is case-insensitive.
 // Returns EmotionNeutral with zero intensity if no emotional keywords are found.
 func AnalyzeEmotion(msg string, lang Language) *EmotionalState {
 	var keywords map[EmotionType][]string
 	var target string
+	var tokens map[string]struct{}
 
 	switch lang {
 	case LangEnglish:
 		keywords = emotionKeywordsEN
 		target = strings.ToLower(msg)
+		tokens = tokenizeEN(target)
 	default: // LangJapanese
 		keywords = emotionKeywordsJA
 		target = msg
@@ -92,10 +107,11 @@ func AnalyzeEmotion(msg string, lang Language) *EmotionalState {
 	bestEmotion := EmotionNeutral
 	bestCount := 0
 
-	for emotion, kws := range keywords {
+	// Iterate in a fixed order (not over the map) so ties resolve deterministically.
+	for _, emotion := range emotionOrder {
 		count := 0
-		for _, kw := range kws {
-			if strings.Contains(target, kw) {
+		for _, kw := range keywords[emotion] {
+			if matchKeyword(target, tokens, kw, lang) {
 				count++
 			}
 		}
@@ -137,6 +153,34 @@ func AnalyzeEmotion(msg string, lang Language) *EmotionalState {
 		Intensity: intensity,
 		Valence:   valence,
 	}
+}
+
+// tokenizeEN splits an already-lowercased English string into the set of its
+// word tokens (runs of letters/digits), used for whole-word keyword matching.
+func tokenizeEN(lower string) map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, tok := range strings.FieldsFunc(lower, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}) {
+		set[tok] = struct{}{}
+	}
+	return set
+}
+
+// matchKeyword reports whether kw matches target. For English, single-word
+// keywords are matched against whole tokens (avoiding substring false positives
+// such as "miss" in "mission" or "fear" in "fearless"); multi-word keywords
+// (e.g. "no way") fall back to substring matching. Japanese has no word
+// separators, so substring matching is used as before.
+func matchKeyword(target string, tokens map[string]struct{}, kw string, lang Language) bool {
+	if lang == LangEnglish {
+		if strings.ContainsRune(kw, ' ') {
+			return strings.Contains(target, kw)
+		}
+		_, ok := tokens[kw]
+		return ok
+	}
+	return strings.Contains(target, kw)
 }
 
 // KeywordEmotionAnalyzer implements EmotionAnalyzer using keyword matching.

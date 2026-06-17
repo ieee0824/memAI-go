@@ -1,6 +1,9 @@
 package memai
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
 
 func TestSTM_Decay(t *testing.T) {
 	stm := NewSTM(DefaultSTMConfig())
@@ -98,3 +101,62 @@ func TestSTM_CapacityLimit(t *testing.T) {
 	}
 }
 
+// Regression (#3): an emotional message must only flag topically relevant
+// items, not every item in working memory.
+func TestSTM_MarkEmotionalOnlyRelevant(t *testing.T) {
+	stm := NewSTM(DefaultSTMConfig())
+	stm.SetItems([]*WorkingMemoryItem{
+		{Topic: "trip", Activation: 0.8, Keywords: []string{"旅行"}},
+		{Topic: "logistics", Activation: 0.8, Keywords: []string{"会議"}},
+	})
+
+	// Emotional message that only relates to the "trip" item.
+	stm.Update(0, "旅行が楽しみ", &EmotionalState{Primary: EmotionJoy, Intensity: 0.6})
+
+	items := stm.Items()
+	var trip, logistics *WorkingMemoryItem
+	for _, it := range items {
+		switch it.Topic {
+		case "trip":
+			trip = it
+		case "logistics":
+			logistics = it
+		}
+	}
+	if trip == nil || logistics == nil {
+		t.Fatal("expected both items to survive")
+	}
+	if !trip.Emotional {
+		t.Error("relevant item should be marked emotional")
+	}
+	if logistics.Emotional {
+		t.Error("unrelated item must NOT be marked emotional")
+	}
+}
+
+// Regression (#5): a zero-value config must not silently wipe working memory.
+func TestSTM_ZeroConfigDoesNotWipe(t *testing.T) {
+	stm := NewSTM(STMConfig{})
+	stm.Add(&WorkingMemoryItem{Topic: "A", Activation: 1.0, Keywords: []string{"a"}})
+	if len(stm.Items()) != 1 {
+		t.Fatalf("zero-value config wiped item; got %d items", len(stm.Items()))
+	}
+}
+
+// Regression (#2): concurrent Update/Add must not race or panic.
+func TestSTM_ConcurrentAccess(t *testing.T) {
+	stm := NewSTM(DefaultSTMConfig())
+	var wg sync.WaitGroup
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func(g int) {
+			defer wg.Done()
+			for i := 0; i < 200; i++ {
+				stm.Add(&WorkingMemoryItem{Topic: "x", Activation: 0.9, Keywords: []string{"x"}})
+				stm.Update(i, "x", &EmotionalState{Primary: EmotionJoy, Intensity: 0.6})
+				_ = stm.Items()
+			}
+		}(g)
+	}
+	wg.Wait()
+}

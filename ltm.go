@@ -5,16 +5,23 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"time"
 )
 
 // LTMConfig configures long-term memory search behavior.
+//
+// Inclusion is gated on cosine similarity alone (>= SimilarityThreshold, lowered
+// by EmotionalPrimeDelta when the user is emotional). The remaining factors
+// (feedback Boost, emotion, thread, date) only adjust the score used for
+// ranking the included results; they never resurrect a semantically irrelevant
+// memory.
 type LTMConfig struct {
 	SimilarityThreshold float64 // Minimum cosine similarity to include (default: 0.3)
-	TopK                int     // Maximum results to return (default: 10)
-	ThreadBoost         float64 // Score boost for same-thread memories (default: 0.1)
-	DateBoost           float64 // Score boost for matching date (default: 0.15)
-	DatePenalty         float64 // Score penalty for mismatched date (default: -0.2)
-	EmotionalBoost      float64 // Score boost factor for emotional memories (default: 0.12)
+	TopK                int     // Maximum results to return; <= 0 means no limit (default: 10)
+	ThreadBoost         float64 // Ranking boost for same-thread memories (default: 0.1)
+	DateBoost           float64 // Ranking boost for matching date (default: 0.15)
+	DatePenalty         float64 // Ranking penalty for mismatched date (default: -0.2)
+	EmotionalBoost      float64 // Ranking boost factor for emotional memories (default: 0.12)
 	EmotionalPrimeDelta float64 // Threshold reduction when user is emotional (default: 0.05)
 }
 
@@ -80,7 +87,14 @@ func (l *LTM[ID]) Search(ctx context.Context, q SearchQuery) ([]SearchResult[ID]
 			continue
 		}
 
-		score := CosineSimilarity(queryEmb, mem.Embedding)
+		// Inclusion is decided by cosine similarity alone (with emotional
+		// priming); the boosts below only affect ranking.
+		sim := CosineSimilarity(queryEmb, mem.Embedding)
+		if sim < threshold {
+			continue
+		}
+
+		score := sim
 
 		// Feedback boost
 		score += mem.Boost
@@ -93,37 +107,39 @@ func (l *LTM[ID]) Search(ctx context.Context, q SearchQuery) ([]SearchResult[ID]
 			score += l.config.ThreadBoost
 		}
 
-		// Date boost/penalty
-		if q.QueryDate != "" && mem.EventDate != "" {
-			if dateMatches(q.QueryDate, mem.EventDate, q.DateMonthOnly) {
-				if q.DateNegated {
-					score += l.config.DatePenalty
-				} else {
-					score += l.config.DateBoost
-				}
-			} else {
-				if q.DateNegated {
-					score += l.config.DateBoost
-				} else {
-					score += l.config.DatePenalty
-				}
-			}
-		}
+		// Date boost/penalty (ranking only)
+		score += l.dateDelta(q, mem)
 
-		if score >= threshold {
-			results = append(results, SearchResult[ID]{Memory: mem, Score: score})
-		}
+		results = append(results, SearchResult[ID]{Memory: mem, Score: score})
 	}
 
-	sort.Slice(results, func(i, j int) bool {
+	sort.SliceStable(results, func(i, j int) bool {
 		return results[i].Score > results[j].Score
 	})
 
-	if len(results) > l.config.TopK {
+	if l.config.TopK > 0 && len(results) > l.config.TopK {
 		results = results[:l.config.TopK]
 	}
 
 	return results, nil
+}
+
+// dateDelta returns the ranking adjustment for the date factor. It is zero
+// when either date is empty or cannot be parsed, so a malformed or
+// foreign-format date never penalizes a memory.
+func (l *LTM[ID]) dateDelta(q SearchQuery, mem Memory[ID]) float64 {
+	if q.QueryDate == "" || mem.EventDate == "" {
+		return 0
+	}
+	matched, ok := dateMatches(q.QueryDate, mem.EventDate, q.DateMonthOnly)
+	if !ok {
+		return 0
+	}
+	// matched != negated => the date is "as wanted" => boost; otherwise penalty.
+	if matched != q.DateNegated {
+		return l.config.DateBoost
+	}
+	return l.config.DatePenalty
 }
 
 // ApplyFeedback adjusts the boost value for the given memories.
@@ -136,21 +152,44 @@ func (l *LTM[ID]) ApplyFeedback(ctx context.Context, memoryIDs []ID, delta float
 	return nil
 }
 
-// dateMatches checks whether two date strings match.
-// If monthOnly is true, only compares year-month (YYYY-MM).
-func dateMatches(queryDate, memDate string, monthOnly bool) bool {
-	if monthOnly {
-		// Compare YYYY-MM prefix
-		if len(queryDate) >= 7 && len(memDate) >= 7 {
-			return queryDate[:7] == memDate[:7]
+// dateLayouts are the accepted date formats, tried in order. Both zero-padded
+// and non-padded numeric forms are accepted, along with RFC3339 timestamps and
+// year-month-only values.
+var dateLayouts = []string{
+	"2006-01-02", "2006-1-2", "2006/01/02", "2006/1/2",
+	time.RFC3339, "2006-01-02T15:04:05",
+	"2006-01", "2006-1", "2006/01", "2006/1",
+}
+
+// parseDate parses a date string using dateLayouts, returning ok=false if no
+// layout matches.
+func parseDate(s string) (time.Time, bool) {
+	for _, layout := range dateLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, true
 		}
-		return false
 	}
-	// Compare full YYYY-MM-DD (first 10 chars)
-	if len(queryDate) >= 10 && len(memDate) >= 10 {
-		return queryDate[:10] == memDate[:10]
+	return time.Time{}, false
+}
+
+// dateMatches reports whether two date strings refer to the same date (or, when
+// monthOnly is true, the same year-month). ok is false when either string
+// cannot be parsed, so the caller can skip the date factor rather than treating
+// a parse failure as a mismatch. Parsing normalizes formatting differences
+// (e.g. "2026-6-17" matches "2026-06-17").
+func dateMatches(queryDate, memDate string, monthOnly bool) (matched, ok bool) {
+	q, ok1 := parseDate(queryDate)
+	m, ok2 := parseDate(memDate)
+	if !ok1 || !ok2 {
+		return false, false
 	}
-	return queryDate == memDate
+	if q.Year() != m.Year() || q.Month() != m.Month() {
+		return false, true
+	}
+	if monthOnly {
+		return true, true
+	}
+	return q.Day() == m.Day(), true
 }
 
 // CosineSimilarity computes the cosine similarity between two vectors.
